@@ -1,0 +1,137 @@
+name: Deploy Knowledge Base
+
+on:
+push:
+branches:
+- main
+paths-ignore:
+- '.gitignore'
+- 'README.md'
+- 'CONTRIBUTING.md'
+- 'LICENSE'
+- 'LICENSE.txt'
+
+pull_request:
+branches:
+- main
+
+workflow_dispatch:
+
+concurrency:
+group: knowledge-base-deployment
+cancel-in-progress: true
+
+permissions:
+contents: read
+pages: write
+id-token: write
+issues: write
+
+jobs:
+test:
+runs-on: ubuntu-latest
+
+```
+env:
+  URL_CHECKER_TIMEOUT: ${{ vars.URL_CHECKER_TIMEOUT }}
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 18
+
+  - name: Cache node_modules
+    uses: actions/cache@v4
+    with:
+      path: node_modules
+      key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+      restore-keys: |
+        ${{ runner.os }}-node-
+
+  - name: Install dependencies
+    run: npm ci
+
+  - name: Run all linters
+    run: npm run lint:all
+
+  - name: Run scripts
+    run: |
+      for file in script/*.js; do
+        if [[ "$(basename "$file")" == "url-checker.js" ]]; then
+          node "$file" -t "$URL_CHECKER_TIMEOUT" -d src/posts
+        else
+          node "$file"
+        fi
+      done
+```
+
+build:
+runs-on: ubuntu-latest
+needs: test
+
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Configure Pages
+    uses: actions/configure-pages@v4
+
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 18
+
+  - name: Cache node_modules
+    uses: actions/cache@v4
+    with:
+      path: node_modules
+      key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+      restore-keys: |
+        ${{ runner.os }}-node-
+
+  - name: Install dependencies
+    run: npm ci
+
+  - name: Build site
+    env:
+      PATH_PREFIX: /${{ github.event.repository.name }}/
+    run: npm run prod
+
+  - name: Upload Pages Artifact
+    uses: actions/upload-pages-artifact@v3
+    with:
+      path: _site
+```
+
+deploy:
+runs-on: ubuntu-latest
+needs:
+- test
+- build
+
+```
+environment:
+  name: github-pages
+  url: ${{ steps.deployment.outputs.page_url }}
+
+steps:
+  - name: Deploy to GitHub Pages
+    id: deployment
+    uses: actions/deploy-pages@v4
+
+  - name: Create Deployment Issue
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+    run: |
+      DATE=$(date +%F)
+
+      gh issue create \
+        --title "$DATE - Deployment: succeeded" \
+        --body "URL: $PAGE_URL"
+```
