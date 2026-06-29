@@ -72,8 +72,9 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: npm install --ignore-scripts
-        npm install --platform=linux --arch=x64 sharp
+        run: |
+          npm install --ignore-scripts
+          npm install --platform=linux --arch=x64 sharp
 
       - name: Build site
         env:
