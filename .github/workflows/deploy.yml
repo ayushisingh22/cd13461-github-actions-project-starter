@@ -30,8 +30,6 @@ issues: write
 jobs:
 test:
 runs-on: ubuntu-latest
-
-```
 env:
   URL_CHECKER_TIMEOUT: ${{ vars.URL_CHECKER_TIMEOUT }}
 
@@ -67,13 +65,12 @@ steps:
           node "$file"
         fi
       done
-```
 
 build:
 runs-on: ubuntu-latest
 needs: test
 
-```
+
 steps:
   - name: Checkout repository
     uses: actions/checkout@v4
@@ -106,15 +103,12 @@ steps:
     uses: actions/upload-pages-artifact@v3
     with:
       path: _site
-```
 
 deploy:
 runs-on: ubuntu-latest
 needs:
 - test
 - build
-
-```
 environment:
   name: github-pages
   url: ${{ steps.deployment.outputs.page_url }}
@@ -134,4 +128,3 @@ steps:
       gh issue create \
         --title "$DATE - Deployment: succeeded" \
         --body "URL: $PAGE_URL"
-```
